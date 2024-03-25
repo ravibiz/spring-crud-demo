@@ -73,9 +73,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - C:\mnt\work\learning\services\spring-crud-demo\docker\grafana\data:/var/lib/grafana
-      - C:\mnt\work\learning\services\spring-crud-demo\docker\grafana\log:/var/log/grafana
-      - C:\mnt\work\learning\services\spring-crud-demo\docker\grafana\config\custom.ini:/etc/grafana/grafana.ini
+      - ./docker/grafana/data:/var/lib/grafana
+      - ./docker/grafana/log:/var/log/grafana
+      - ./docker/grafana/config/custom.ini:/etc/grafana/grafana.ini
       - ./docker/grafana/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
     depends_on:
       - prometheus
