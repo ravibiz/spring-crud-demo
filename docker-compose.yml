@@ -1,0 +1,112 @@
+version: '3'
+services:
+  spring-crud-demo-service:
+    image: spring-crud-demo-service
+    environment:
+      JAVA_TOOL_OPTIONS: "-javaagent:/etc/opentelemetry-javaagent.jar"
+      OTEL_SERVICE_NAME: "spring-crud-demo-service"
+      OTEL_RESOURCE_ATTRIBUTES: "service=spring-crud-demo-service,env=dev"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector:4317"
+      OTEL_LOGS_EXPORTER: "otlp"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./opentelemetry-javaagent.jar:/etc/opentelemetry-javaagent.jar
+    depends_on:
+      - mysql
+      - collector
+
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    container_name: collector
+    restart: always
+    command:
+      - --config=/etc/otelcol-cont/otel-collector.yml
+    volumes:
+      - ./docker/collector/otel-collector.yml:/etc/otelcol-cont/otel-collector.yml
+    ports:
+      - "4317" # OTLP gRPC receiver
+      - "8889" # Prometheus exporter metrics
+    depends_on:
+      - loki
+      - jaeger-all-in-one
+      - zipkin-all-in-one
+      - tempo
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus
+    restart: always
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --enable-feature=exemplar-storage
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - collector
+
+  tempo:
+    container_name: tempo
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yml" ]
+    volumes:
+      - ./docker/tempo/tempo.yml:/etc/tempo.yml
+    restart: always
+    ports:
+      - "3200"   # tempo
+      - "4317"  # otlp grpc
+
+  loki:
+    container_name: loki
+    image: grafana/loki:latest
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: always
+    ports:
+      - "3100"
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - C:\mnt\work\learning\services\spring-crud-demo\docker\grafana\data:/var/lib/grafana
+      - C:\mnt\work\learning\services\spring-crud-demo\docker\grafana\log:/var/log/grafana
+      - C:\mnt\work\learning\services\spring-crud-demo\docker\grafana\config\custom.ini:/etc/grafana/grafana.ini
+      - ./docker/grafana/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+      - jaeger-all-in-one
+      - zipkin-all-in-one
+
+  jaeger-all-in-one:
+    container_name: jaeger
+    image: jaegertracing/all-in-one:latest
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: always
+    ports:
+      - "16686:16686"
+      - "4317"
+
+  zipkin-all-in-one:
+    container_name: zipkin
+    image: openzipkin/zipkin:latest
+    restart: always
+    ports:
+      - "9411:9411"
+
+  mysql:
+    container_name: mysql-server
+    image: mysql/mysql-server:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+    ports:
+      - "3306:3306"
+    volumes:
+      - C:\mnt\data\mysql:/var/lib/mysql
